@@ -1,12 +1,12 @@
 import numpy as np
-import pandas as pd
+# import pandas as pd
 import random
-import copy
+# import copy
 import matplotlib.pyplot as plt
-import csv
+# import csv
 
 ENABLE_PRINT = 0
-
+DETAILED_ENABLE_PRINT=0
 #convert the preference matrix into ranking matrix
 def get_ranking(preference):
     ranking = np.zeros(preference.shape,dtype=int)
@@ -27,17 +27,17 @@ def phaseI_reduction(preference, leftmost, rightmost, ranking):
 
             while ranking[next_choice,proposer]> ranking[next_choice,current]:
                 ## proposer proposed to his next choice but being rejected
-                if ENABLE_PRINT: print("player", proposer+1, "proposed to", next_choice+1, "; ", next_choice+1, "rejects", proposer+1 )
+                if ENABLE_PRINT and DETAILED_ENABLE_PRINT: print("player", proposer+1, "proposed to", next_choice+1, "; ", next_choice+1, "rejects", proposer+1 )
                 leftmost[proposer] = leftmost[proposer] + 1 ##proposer's preference list got reduced by 1 from the left
                 next_choice = preference[proposer, leftmost[proposer]]
                 current = preference[next_choice, rightmost[next_choice]]
 
             ## proposer being accepted by his next choice and next choice rejected his current partner
             if current!= next_choice: ##if next choice currently holds somebody
-                if ENABLE_PRINT: print("player", proposer + 1, "proposed to", next_choice + 1,"; ",next_choice + 1, "rejects", current + 1, " and holds", proposer+1 )
+                if ENABLE_PRINT and DETAILED_ENABLE_PRINT: print("player", proposer + 1, "proposed to", next_choice + 1,"; ",next_choice + 1, "rejects", current + 1, " and holds", proposer+1 )
                 leftmost[current]=leftmost[current]+1
             else: ##if next choice currently holds no body
-                if ENABLE_PRINT: print("player", proposer + 1, "proposed to", next_choice+1, "; ", next_choice+1, "holds", proposer+1)
+                if ENABLE_PRINT and DETAILED_ENABLE_PRINT: print("player", proposer + 1, "proposed to", next_choice+1, "; ", next_choice+1, "holds", proposer+1)
 
             rightmost[next_choice] = ranking[next_choice, proposer] ##next choice's preference's list got reduced, rightmost is proposer now
 
@@ -50,13 +50,17 @@ def phaseI_reduction(preference, leftmost, rightmost, ranking):
     ##Claim1: if there is a player i who is rejected by all, then he must be the last proposer in the loop
     ##Proof: bc if someone who has not proposed anyone, then there must be at least 1 person besides player i who holds nobody
     ##This fact is used to decide whether the solution exists or not
+
+    #if soln_possible:
+    if ENABLE_PRINT:  print("The table after phase-I execution is:")
+    if ENABLE_PRINT:  friendly_print_current_table(preference, leftmost, rightmost)
     return soln_possible, leftmost, rightmost
 
 def get_all_unmatched(leftmost, rightmost):
     unmatched_players = []
     for person in range(0, len(leftmost)):
         if leftmost[person] != rightmost[person]:
-            if ENABLE_PRINT: print(person + 1, "is unmatched")
+            if ENABLE_PRINT and DETAILED_ENABLE_PRINT: print(person + 1, "is unmatched")
             unmatched_players.append(person)
     return unmatched_players
 
@@ -70,6 +74,7 @@ def update_second2(person,preference, second, leftmost, rightmost, ranking):
         if ranking[next_choice, person] <= rightmost[next_choice]:  # check whether person is still in next_choice's reduced list <=> next_choice is still in his list
             second[person] = pos_in_list -1
             return next_choice, second
+
 
 ##Claim2: if a person whose reduced list contains only one person, he shall not appear in the cycle?
 ##Proof: Assume person i's list only contains one person j, -> j holds i's proposal after the reduction
@@ -92,15 +97,15 @@ def seek_cycle2(preference, second,  first_unmatched, leftmost, rightmost, ranki
     cycle =[]
     posn_in_cycle = 0
     person = first_unmatched
-    if ENABLE_PRINT: print("p_",posn_in_cycle+1,":",person+1)
+    if ENABLE_PRINT and DETAILED_ENABLE_PRINT: print("p_",posn_in_cycle+1,":",person+1)
 
     while not (person in cycle): ##loop until the first repeat
         cycle.append(person)
         posn_in_cycle+=1
         next_choice, second = update_second2(person,preference, second, leftmost, rightmost, ranking)
-        if ENABLE_PRINT: print("q_",posn_in_cycle,":",next_choice+1)
+        if ENABLE_PRINT and DETAILED_ENABLE_PRINT: print("q_",posn_in_cycle,":",next_choice+1)
         person = preference[next_choice,rightmost[next_choice]]
-        if ENABLE_PRINT: print("p_",posn_in_cycle+1,":",person+1)
+        if ENABLE_PRINT and DETAILED_ENABLE_PRINT: print("p_",posn_in_cycle+1,":",person+1)
     #after this loop, person is the one who repeats first
 
     last_in_cycle= posn_in_cycle-1 #position of the last one in cycle in the "cycle" list
@@ -113,6 +118,7 @@ def seek_cycle2(preference, second,  first_unmatched, leftmost, rightmost, ranki
             break
     #print("!!!",first_in_cycle,last_in_cycle)
     #print("I am out of seek_cycle2 now")
+    friendly_print_rotation(cycle, first_in_cycle, last_in_cycle, preference, leftmost, second)
     return first_in_cycle, last_in_cycle, cycle, second
 
 
@@ -126,7 +132,7 @@ def phaseII_reduction2(preference, first_in_cycle, last_in_cycle, second, leftmo
         leftmost[proposer] = second[proposer]
         second[proposer] = leftmost[proposer]+1 #it is mentioned that proper initialization is unnecessary
         next_choice = preference[proposer,leftmost[proposer]]
-        if ENABLE_PRINT: print(proposer+1, "proposed to his second choice in the reduced list:", next_choice+1, ";", next_choice+1,"accepted ", proposer+1, "and rejected", preference[next_choice,rightmost[next_choice]]+1 )
+        if ENABLE_PRINT and DETAILED_ENABLE_PRINT: print(proposer+1, "proposed to his second choice in the reduced list:", next_choice+1, ";", next_choice+1,"accepted ", proposer+1, "and rejected", preference[next_choice,rightmost[next_choice]]+1 )
         rightmost[next_choice] = get_ranking(preference)[next_choice,proposer]
     #print([leftmost, rightmost, second])
     #To check whether stable matching exists or not#
@@ -136,20 +142,55 @@ def phaseII_reduction2(preference, first_in_cycle, last_in_cycle, second, leftmo
         soln_possible = leftmost[proposer] <= rightmost[proposer]
         rank+=1
     if not soln_possible:
-        if ENABLE_PRINT: print("No stable matching exists!")
+        if ENABLE_PRINT: print("No stable matching exists!!!")
         return soln_possible, first_in_cycle, last_in_cycle, second.copy(), leftmost.copy(), rightmost.copy(),  cycle
 
     #A special step to handle the case of more than one cycle, seems not contained in the code in paper#
     for person in range(first_in_cycle, last_in_cycle):
         if leftmost[cycle[first_in_cycle]] != rightmost[cycle[first_in_cycle]]:
             to_print =np.array(cycle[first_in_cycle:last_in_cycle + 1])+1
-            if ENABLE_PRINT: print(to_print, "is still unmatched")
+            if ENABLE_PRINT and DETAILED_ENABLE_PRINT: print("E=",to_print, "is still unmatched")
+            if ENABLE_PRINT: print("The table after rotation elimination is:")
+            if ENABLE_PRINT:  friendly_print_current_table(preference, leftmost, rightmost)
             return soln_possible, first_in_cycle,  last_in_cycle,  second.copy(), leftmost.copy(), rightmost.copy(),  cycle
     to_print = np.array(cycle[first_in_cycle:last_in_cycle + 1]) + 1
-    if ENABLE_PRINT: print(to_print, "is all  matched")
+    if ENABLE_PRINT and DETAILED_ENABLE_PRINT: print("E=",to_print, "is all  matched")
     first_in_cycle=0
+
     #print("I am out of phase II reduction2 now")
+    if ENABLE_PRINT: print("The table after rotation elimination is:")
+    if ENABLE_PRINT:  friendly_print_current_table(preference, leftmost, rightmost)
     return soln_possible, first_in_cycle, last_in_cycle, second.copy(), leftmost.copy(), rightmost.copy(),  cycle
+
+def friendly_print_current_table(preference, leftmost, rightmost):
+    for person in range(0,len(preference)):
+        to_print = []
+        for entry in range(leftmost[person],rightmost[person]+1):
+            if get_ranking(preference)[preference[person, entry],person]<=rightmost[preference[person,entry]]:
+                to_print.append(preference[person,entry])
+        to_print=np.array(to_print)
+        print(person+1,"|",to_print+1)
+
+def friendly_print_rotation(cycle,first_in_cycle,last_in_cycle, preference,leftmost,second):
+    print("The rotation exposed is:")
+    print("E| H S")
+    for person in range(first_in_cycle,last_in_cycle+1):
+        print("{0}| {1} {2}".format(cycle[person]+1,preference[cycle[person],leftmost[cycle[person]]]+1,preference[cycle[person],second[cycle[person]]]+1))
+
+def friendly_print_sol(partners):
+    seen = []
+    pairs=[]
+    to_print = []
+    for sol in partners:
+        for people in range(0, len(sol)):
+            if people not in seen:
+                seen.append(people)
+                pairs.append((people+1,sol[people]+1))
+                seen.append(sol[people])
+        to_print.append(pairs)
+        pairs = []
+        seen=[]
+    return to_print
 
 
 def Find_all_Irving_partner(preference):
@@ -191,9 +232,9 @@ def Find_all_Irving_partner(preference):
 
         unmatched = get_all_unmatched(qlfmost, qrtmost)
         if unmatched:
-            if ENABLE_PRINT: print("The tripple is:")
-            if ENABLE_PRINT: print([qlfmost, qrtmost, qsecond])
-            if ENABLE_PRINT: print("it is unmatched yet!")
+            # if ENABLE_PRINT: print("The tripple is:")
+            # if ENABLE_PRINT: print([qlfmost, qrtmost, qsecond])
+            # if ENABLE_PRINT: print("it is unmatched yet!")
             for person in unmatched:
                 if ENABLE_PRINT: print("person is:", person+1)
                 #print("before skcycle:",[qlfmost, qrtmost, qsecond])
@@ -204,21 +245,26 @@ def Find_all_Irving_partner(preference):
                 #print([curlfmost, currtmost, cursecond])
                 curtripple = [curlfmost, currtmost, cursecond]
                 if not any(all((pref1==pref2).all() for pref1, pref2 in zip(curtripple,tripple)) for tripple in seen) and soln_possible:
-                    if ENABLE_PRINT: print("The new tripple is:")
-                    if ENABLE_PRINT: print([curlfmost, currtmost, cursecond])
-                    if ENABLE_PRINT: print("it is added to the queue")
+                    # if ENABLE_PRINT: print("The new tripple is:")
+                    # if ENABLE_PRINT: print([curlfmost, currtmost, cursecond])
+                    # if ENABLE_PRINT: print("it is added to the queue")
                     seen.append([curlfmost, currtmost, cursecond])
                     queue.append([curlfmost, currtmost, cursecond])
                 #print("after phase ii:", [qlfmost, qrtmost, qsecond])
         else:
-            if ENABLE_PRINT: print("The tripple is:")
-            if ENABLE_PRINT: print([qlfmost, qrtmost, qsecond])
-            if ENABLE_PRINT: print("it is matched already!")
+            # if ENABLE_PRINT: print("The tripple is:")
+            # if ENABLE_PRINT: print([qlfmost, qrtmost, qsecond])
+            # if ENABLE_PRINT: print("it is matched already!")
             partner = np.zeros(len(preference[0, :]), dtype=int)
             for person in range(0, len(qlfmost)):
                 partner[person] = preference[person, qlfmost[person]]
             if not any(partner.tolist() == p for p in partners):
                 partners.append(partner.tolist())
+
+            to_print = friendly_print_sol(partners)
+
+
+    if ENABLE_PRINT: print("The solution is: ", to_print)
     return partners
 
 
@@ -230,40 +276,66 @@ def gen_random_preference(SIZE = 4):
         preference[i,SIZE-1] = i
     return preference
 
+
+
+
 if __name__== '__main__':
 
 
-    #variables initialization#
-    preference = np.array(
-        [[3, 5, 1, 4, 2, 6, 7, 8, 9, 10, 11, 0], [5, 2, 4, 0, 3,  6, 7, 8, 9, 10, 11, 1], [3, 4, 0, 5, 1,  6, 7, 8, 9, 10, 11, 2],
-         [1, 5, 4, 0, 2,  6, 7, 8, 9, 10, 11, 3], [3, 1, 2, 5, 0,  6, 7, 8, 9, 10, 11, 4], [4, 0, 3, 1, 2, 6, 7, 8, 9, 10, 11,  5],
-         [9, 11, 7, 10, 8, 0, 1, 2, 3, 4, 5, 6], [11, 8, 10, 6, 9, 0, 1, 2, 3, 4, 5, 7], [9, 10, 6, 11, 7, 0, 1, 2, 3, 4, 5, 8],
-         [7, 11, 10, 6, 8, 0, 1, 2, 3, 4, 5, 9], [9, 7, 8, 11, 6, 0, 1, 2, 3, 4, 5, 10], [10, 6, 9, 7, 8, 0, 1, 2, 3, 4, 5, 11] ]    )
 
-    example = np.array([[1,4,3,5,6,7,2,0],[2,5,0,6,7,4,3,1],[3,6,1,7,4,5,0,2],[0,7,2,4,5,6,1,3],[5,0,7,1,2,3,6,4],[6,1,4,2,3,0,7,5],[7,2,5,3,0,1,4,6],[4,3,6,0,1,2,5,7]])
-    ENABLE_PRINT = 1
-    Find_all_Irving_partner(example)
+    while True:
+        try:
+            inp = input("Type in Y to see an example, anything else to skip")
+            if inp =="Y":
+                example = np.array([[1,4,3,5,6,7,2,0],[2,5,0,6,7,4,3,1],[3,6,1,7,4,5,0,2],[0,7,2,4,5,6,1,3],[5,0,7,1,2,3,6,4],[6,1,4,2,3,0,7,5],[7,2,5,3,0,1,4,6],[4,3,6,0,1,2,5,7]])
 
-
-    ENABLE_PRINT =0
-    examples = dict()
-    counters=[]
-    for half_size in range(4,5):
-        for i in range(0,1000):
-            preference = gen_random_preference(2*half_size)
-            pref_as_key = preference.tolist()
-            for i in range(0, len(preference)):
-                pref_as_key[i] = tuple(pref_as_key[i])
-            if tuple(pref_as_key) not in examples.keys():
-                examples[tuple(pref_as_key)] = Find_all_Irving_partner(preference)
+                ENABLE_PRINT = 1
+                Find_all_Irving_partner(example)
             else:
-                i = i-1
-                continue
-                
-    for pref_as_key in examples.keys():
-         counters.append(len(examples[pref_as_key]))
-    plt.hist(counters)
-    plt.show()
+                break
+        except:
+            print("Invalid input")
+
+    while True:
+        try:
+            inp = input("Type in Y to try your own problem, anything else to skip")
+            if inp =="Y":
+                problem = input("Please type in your preference table, e.g. [[2,3,4,1],[1,3,4,2],[2,4,1,3],[1,3,2,4]]:")
+                preferences = np.array(eval(problem))-1
+                ENABLE_PRINT = 1
+                Find_all_Irving_partner(preferences)
+            else:
+                break
+        except:
+            print("Invalid input")
 
 
+    while True:
+        try:
+            ENABLE_PRINT =0
+            examples = dict()
+            counters=[]
+            inp = input("Type in Y to try gen random samples and see the distribution of number of solutions, anything else to skip")
+            if inp == "Y":
+                hsize = int(int(input("Please specify the size of problem:"))/2)
+                samples = int(input("Please specify the sample size:"))
+                for half_size in range(hsize,hsize+1):
+                    for i in range(0,samples+1):
+                        preference = gen_random_preference(2*half_size)
+                        pref_as_key = preference.tolist()
+                        for i in range(0, len(preference)):
+                            pref_as_key[i] = tuple(pref_as_key[i])
+                        if tuple(pref_as_key) not in examples.keys():
+                            examples[tuple(pref_as_key)] = Find_all_Irving_partner(preference)
+                        else:
+                            i = i-1
+                            continue
+                for pref_as_key in examples.keys():
+                    counters.append(len(examples[pref_as_key]))
+                plt.hist(counters)
+                plt.show()
+            else:
+                break
+        except:
+             print("Invalid input")
 
